@@ -35,13 +35,24 @@ class JsonRpcUnixDomainSocketClient {
 	if(! socket_connect($sock, $this->_socketName)) {
 		throw new Exception("Can't connect  socket " . $this->_socketName, 1);
 	}
-	$bytes_sent = socket_write($sock, $jsonContent, strlen($jsonContent));
+	
+	$toSend = $jsonContent;
+	$everythingWriten = False;
+	do {
+	$len = strlen($toSend);
+	$bytes_sent = socket_write($sock, $toSend, $len);
 	if($bytes_sent === false) {
 		throw new Exception("Impossible to send data in socket " . $this->_socketName, 1);
 	}
-	if($bytes_sent < strlen($jsonContent)) {
-		throw new Exception("Only " .  $bytes_sent . " bytes sent. Expected " . strlen($jsonContent) . "\n", 1);
+	if($bytes_sent < $len) {
+		$everythingWritten = False;
+		$toSend = substr($toSend, $bytes_sent, $len - $bytes_sent);
+		//throw new Exception("Only " .  $bytes_sent . " bytes sent. Expected " . $len . "\n", 1);
 	}
+	else {
+		$everythingWritten = True;
+	}
+	} while(!$everythingWritten);
 
 	$response = "";
 	do {
