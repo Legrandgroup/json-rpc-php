@@ -28,20 +28,16 @@ class JsonRpcUnixDomainSocketClient {
 	private function unixDomainSocketRequest($rpcBatchArray) {
 		$jsonContent = json_encode($rpcBatchArray);
 		$jsonContent .= PHP_EOL;
-		$sock = socket_create(AF_UNIX, SOCK_STREAM, 0);
-		if ($sock === false) {
+		$sock = stream_socket_client("unix://".$this->_socketName, $errno, $errstr, 30);
+		if (!$sock) {
 			throw new Exception("Can't create socket", 1);
 		}
-		if(! socket_connect($sock, $this->_socketName)) {
-			throw new Exception("Can't connect  socket " . $this->_socketName, 1);
-		}
-
 		$toSend = $jsonContent;
 		$everythingWriten = False;
 		do {
 			$len = strlen($toSend);
-			$bytes_sent = socket_write($sock, $toSend, $len);
-			if($bytes_sent === false) {
+			$bytes_sent = fwrite($sock, $toSend, $len);
+			if(!$bytes_sent) {
 				throw new Exception("Impossible to send data in socket " . $this->_socketName, 1);
 			}
 			if($bytes_sent < $len) {
@@ -57,14 +53,14 @@ class JsonRpcUnixDomainSocketClient {
 		$response = "";
 		do {
 			$recv = "";
-			$bytes_recv = socket_recv($sock, $recv, 512, MSG_WAITALL);
-			if($bytes_recv === false) { 
+			$recv = fgets($sock, 512);
+			$bytes_recv = strlen($recv);
+			if(!$recv) { 
 				throw new Exception("Impossible to receive data in socket " . $this->_socketName, 1);
 			}
 			$response .= substr($recv, 0, $bytes_recv);
 		} while(strpos($response, PHP_EOL) === False);
-		socket_close($sock);
-
+		fclose($sock);
 		$json_response = json_decode($response);
 		if (json_last_error() != JSON_ERROR_NONE) {
 			switch (json_last_error()) {
